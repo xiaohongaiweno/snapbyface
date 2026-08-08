@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.pyc
+.idea/
+.idea/*
+*.iml
+
+# 运行时产物
+logs/*.log
+*.db
+*.db-wal
+*.db-shm
+data/
+
+# 测试缓存
+.pytest_cache/
+
+# 构建产物
+build/
+dist/
+*.spec
+*.egg-info/
