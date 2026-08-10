@@ -92,10 +92,14 @@ python -m venv .venv
    - macOS Intel：`SnapByFace-macOS-<version>-x86_64.dmg`
    - macOS Apple Silicon：`SnapByFace-macOS-<version>-arm64.dmg`（runner 可用时）
 
-如需把 `data/models` 内的 AI 模型随安装包一起发布，手动运行 workflow 时将
-`include_models` 设为 `yes`。仓库中没有模型文件时，应用会在首次使用 AI 能力时下载到用户数据目录。
+GitHub Actions 打包时会强制下载 InsightFace `buffalo_l` 模型到 `data/models/buffalo_l`，
+并把模型随安装包一起发布。可通过 `SNAPBYFACE_MODEL_URL` 覆盖默认模型下载地址。
 
 本地仍可使用脚本构建：
+
+```bash
+python script/download_models.py --force
+```
 
 在 Windows 上运行：
 

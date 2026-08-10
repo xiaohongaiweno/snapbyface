@@ -7,15 +7,6 @@ on:
         description: "Installer version, for example 1.0.0"
         required: false
         default: "0.1.0"
-      include_models:
-        description: "Bundle data/models when present in the checkout"
-        required: false
-        default: "auto"
-        type: choice
-        options:
-          - auto
-          - yes
-          - no
   push:
     tags:
       - "v*"
@@ -85,14 +76,13 @@ jobs:
         shell: pwsh
         run: choco install innosetup --yes --no-progress
 
+      - name: Download AI models
+        shell: pwsh
+        run: python script/download_models.py --force
+
       - name: Build installer
         shell: pwsh
-        run: |
-          $includeModels = "${{ github.event.inputs.include_models }}"
-          if ([string]::IsNullOrWhiteSpace($includeModels)) {
-            $includeModels = "auto"
-          }
-          python script/build.py --platform "${{ matrix.platform }}" --include-models "$includeModels"
+        run: python script/build.py --platform "${{ matrix.platform }}" --include-models yes
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4

@@ -21,6 +21,14 @@ INSTALLER_DIR = DIST_DIR / "installers"
 SPEC_PATH = SCRIPT_DIR / "snapbyface.spec"
 WINDOWS_INSTALLER_SCRIPT = SCRIPT_DIR / "installer_windows.iss"
 DEFAULT_VENV_DIR = ROOT_DIR / ".venv-build"
+MODEL_DIR = ROOT_DIR / "data" / "models" / "buffalo_l"
+REQUIRED_MODEL_FILES = {
+    "1k3d68.onnx",
+    "2d106det.onnx",
+    "det_10g.onnx",
+    "genderage.onnx",
+    "w600k_r50.onnx",
+}
 
 TRUE_VALUES = {"1", "true", "yes", "on"}
 
@@ -81,10 +89,19 @@ def resolve_include_models(mode: str) -> bool:
         return True
     if mode == "no":
         return False
-    return (ROOT_DIR / "data" / "models" / "buffalo_l").exists()
+    return model_ready()
+
+
+def model_ready() -> bool:
+    return all((MODEL_DIR / filename).is_file() for filename in REQUIRED_MODEL_FILES)
 
 
 def build_with_pyinstaller(python: Path, include_models: bool) -> None:
+    if include_models and not model_ready():
+        raise SystemExit(
+            f"AI model directory is missing or incomplete: {MODEL_DIR}. "
+            "Run script/download_models.py before packaging."
+        )
     env = os.environ.copy()
     env["SNAPBYFACE_INCLUDE_MODELS"] = "1" if include_models else "0"
     print(f"Bundled AI models: {'yes' if include_models else 'no'}")
