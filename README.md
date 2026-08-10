@@ -84,22 +84,35 @@ python -m venv .venv
 
 ## 跨平台打包
 
+推荐通过 GitHub Actions 生成安装包：
+
+1. 推送 `v*` tag，或在 GitHub 的 Actions 页面手动运行 `Build Installers`。
+2. workflow 会生成以下 artifact：
+   - Windows 10+：`SnapByFace-Windows-<version>-Setup.exe`
+   - macOS Intel：`SnapByFace-macOS-<version>-x86_64.dmg`
+   - macOS Apple Silicon：`SnapByFace-macOS-<version>-arm64.dmg`（runner 可用时）
+
+如需把 `data/models` 内的 AI 模型随安装包一起发布，手动运行 workflow 时将
+`include_models` 设为 `yes`。仓库中没有模型文件时，应用会在首次使用 AI 能力时下载到用户数据目录。
+
+本地仍可使用脚本构建：
+
 在 Windows 上运行：
 
 ```bat
-build_windows.bat
+script\build_windows.bat
 ```
 
-产物位于 `dist\SnapByFace\`，使用 PyInstaller 生成免安装目录。
+产物位于 `dist\installers\`，使用 PyInstaller + Inno Setup 生成安装程序。
 
 在 macOS 上运行：
 
 ```bash
-./build_macos.sh
+./script/build_macos.sh
 ```
 
-产物位于 `dist/SnapByFace.app`。macOS 构建必须在 macOS 本机执行，Intel 和 Apple Silicon
-建议分别构建。正式发布前还需要完成代码签名和 notarization。
+产物位于 `dist/installers/`。macOS 构建必须在 macOS 本机执行，Intel 和 Apple Silicon
+需要分别构建。正式发布前还需要完成代码签名和 notarization。
 
 Windows 和 macOS 都会把运行数据写入用户目录，不会写入应用安装目录：
 

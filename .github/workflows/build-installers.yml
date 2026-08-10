@@ -1,0 +1,102 @@
+name: Build Installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Installer version, for example 1.0.0"
+        required: false
+        default: "0.1.0"
+      include_models:
+        description: "Bundle data/models when present in the checkout"
+        required: false
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - yes
+          - no
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64 installer
+            os: windows-latest
+            platform: windows
+            artifact_name: SnapByFace-Windows
+            optional: false
+          - name: macOS Intel DMG
+            os: macos-15-intel
+            platform: macos
+            artifact_name: SnapByFace-macOS-Intel
+            optional: false
+          - name: macOS Apple Silicon DMG
+            os: macos-latest
+            platform: macos
+            artifact_name: SnapByFace-macOS-AppleSilicon
+            optional: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Resolve build version
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.inputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            $version = "${{ github.ref_name }}"
+          }
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            $version = "0.0.${{ github.run_number }}"
+          }
+          if ($version.StartsWith("v")) {
+            $version = $version.Substring(1)
+          }
+          "SNAPBYFACE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $includeModels = "${{ github.event.inputs.include_models }}"
+          if ([string]::IsNullOrWhiteSpace($includeModels)) {
+            $includeModels = "auto"
+          }
+          python script/build.py --platform "${{ matrix.platform }}" --include-models "$includeModels"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-${{ env.SNAPBYFACE_VERSION }}
+          path: dist/installers/*
+          if-no-files-found: error

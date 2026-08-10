@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 APP_DIR_NAME = "SnapByFace"
@@ -58,6 +59,8 @@ def get_default_faiss_path(app_dir: Path | str) -> Path:
 
 def get_project_root() -> Path:
     """返回项目根目录（core/paths.py 所在目录的上两级）。"""
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
     return Path(__file__).resolve().parents[1]
 
 
@@ -68,4 +71,7 @@ def get_model_root() -> Path:
     故 root 取 data/，模型最终位于 data/models/buffalo_l/。
     可通过配置 ai.model_dir 覆盖。
     """
-    return get_project_root() / "data"
+    project_data = get_project_root() / "data"
+    if getattr(sys, "frozen", False) and not (project_data / "models").exists():
+        return get_data_dir(get_app_dir())
+    return project_data
