@@ -65,6 +65,7 @@ def test_report_startup_posts_json(ctx, tmp_path):
     assert request.headers["X-client-version"] == payload["app_version"]
     assert request.headers["X-platform"] == payload["os"]
     assert request.headers["X-cpu-arch"] == payload["cpu_arch"]
+    assert request.headers["X-forwarded-proto"] == "https"
     assert timeout == 1.5
 
 

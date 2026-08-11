@@ -8,6 +8,7 @@ import platform
 import threading
 import urllib.request
 from datetime import UTC, datetime
+from urllib.parse import urlparse
 from typing import Any, Callable
 
 from core.config import ConfigManager
@@ -60,6 +61,11 @@ def _as_bool(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip().lower() not in {"0", "false", "no", "off", ""}
     return bool(value)
+
+
+def _is_loopback_url(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return host in {"localhost", "::1"} or host.startswith("127.")
 
 
 class TelemetryService:
@@ -119,29 +125,34 @@ class TelemetryService:
     def report_startup(self) -> bool:
         """Submit startup telemetry once. Returns False for disabled/failures."""
         endpoint = self.endpoint
-        if not self.enabled or not endpoint:
+        if not self.enabled:
+            self._logger.info("启动遥测已禁用")
+            return False
+        if not endpoint:
+            self._logger.info("启动遥测未配置接口地址")
             return False
 
-        payload = self.build_payload()
-        body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
-            "utf-8"
-        )
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": (
-                f"{APP_NAME}/{payload['app_version']} "
-                f"({payload['os']}; {payload['cpu_arch']})"
-            ),
-            "X-Client-Version": payload["app_version"],
-            "X-Platform": payload["os"],
-            "X-CPU-Arch": payload["cpu_arch"],
-        }
-        request = urllib.request.Request(
-            endpoint, data=body, headers=headers, method="POST"
-        )
-
         try:
+            payload = self.build_payload()
+            body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
+                "utf-8"
+            )
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": (
+                    f"{APP_NAME}/{payload['app_version']} "
+                    f"({payload['os']}; {payload['cpu_arch']})"
+                ),
+                "X-Client-Version": payload["app_version"],
+                "X-Platform": payload["os"],
+                "X-CPU-Arch": payload["cpu_arch"],
+            }
+            if urlparse(endpoint).scheme == "http" and _is_loopback_url(endpoint):
+                headers["X-Forwarded-Proto"] = "https"
+            request = urllib.request.Request(
+                endpoint, data=body, headers=headers, method="POST"
+            )
             with self._urlopen(request, timeout=self.timeout_seconds) as response:
                 status = int(getattr(response, "status", 0) or response.getcode())
                 response.read()
@@ -149,16 +160,22 @@ class TelemetryService:
             if ok:
                 self._logger.info("启动遥测已上报: %s", endpoint)
             else:
-                self._logger.debug("启动遥测上报失败: HTTP %s", status)
+                self._logger.warning("启动遥测上报失败: %s HTTP %s", endpoint, status)
             return ok
         except Exception as exc:
-            self._logger.debug("启动遥测上报失败: %s", exc)
+            self._logger.warning("启动遥测上报失败: %s %s", endpoint, exc)
             return False
 
     def report_startup_async(self) -> threading.Thread | None:
         """Start telemetry reporting in a daemon thread."""
-        if not self.enabled or not self.endpoint:
+        endpoint = self.endpoint
+        if not self.enabled:
+            self._logger.info("启动遥测已禁用")
             return None
+        if not endpoint:
+            self._logger.info("启动遥测未配置接口地址")
+            return None
+        self._logger.info("启动遥测已调度: %s", endpoint)
         thread = threading.Thread(
             target=self.report_startup,
             name="SnapByFaceTelemetry",
