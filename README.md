@@ -76,11 +76,12 @@ python -m venv .venv
 ## 授权
 
 1. 打开「授权」页，复制机器码。
-2. 联系厂商签发授权码：
+2. 机器码格式与授权中心一致：`PX-XXXX-XXXX-XXXX`。
+3. 联系厂商或通过授权中心签发 `PHX-...` 授权码。本地离线签发示例：
    ```bash
-   python tools/make_license.py --machine <机器码> --type month --days 30
+   python tools/make_license.py --machine <机器码> --type duration --days 365 --private-key <私钥路径>
    ```
-3. 在软件中输入授权码激活。
+4. 在软件中输入授权码激活。
 
 ## 跨平台打包
 

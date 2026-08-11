@@ -8,10 +8,10 @@ import math
 from core.config import ConfigManager
 from core.license import (
     DATETIME_FMT,
-    LICENSE_SECRET,
     LicenseInfo,
     decode_license,
     generate_machine_code,
+    validate_license_code,
 )
 from core.logger import get_logger
 from database.connection import Database
@@ -37,7 +37,7 @@ class LicenseService:
         db: Database,
         config: ConfigManager,
         app_dir: Path | str,
-        secret: str = LICENSE_SECRET,
+        public_key_path: Path | str | None = None,
         home_dir: Path | str | None = None,
         logger=None,
     ) -> None:
@@ -45,7 +45,7 @@ class LicenseService:
         self._config = config
         self._app_dir = Path(app_dir)
         self._home_dir = Path(home_dir) if home_dir is not None else Path.home()
-        self._secret = secret
+        self._public_key_path = public_key_path
         self._repo = LicenseRepository(db)
         self._logger = logger or get_logger("service.license")
         self._machine = generate_machine_code()
@@ -81,7 +81,7 @@ class LicenseService:
             try:
                 if path.exists():
                     key = path.read_text(encoding="utf-8").strip()
-                    if key and decode_license(key, self._secret) is not None:
+                    if key and decode_license(key, self._public_key_path, self._machine) is not None:
                         return key
             except OSError:
                 continue
@@ -108,12 +108,12 @@ class LicenseService:
             if licensed.is_expired():
                 base.update(
                     valid=False, licensed=True, trial=False,
-                    reason="expired", expires_at=licensed.expires_at,
+                    reason="expired", expires_at=licensed.display_expires_at(),
                 )
             else:
                 base.update(
                     valid=True, licensed=True, trial=False,
-                    reason="ok", expires_at=licensed.expires_at,
+                    reason="ok", expires_at=licensed.display_expires_at(),
                 )
             return base
 
@@ -159,13 +159,14 @@ class LicenseService:
         返回: (是否成功, 提示信息)。
         """
         key = key.strip()
-        info = decode_license(key, self._secret)
-        if info is None:
-            return False, "授权码无效"
+        try:
+            info = validate_license_code(key, self._machine, self._public_key_path)
+        except ValueError as exc:
+            return False, str(exc)
         if info.machine_code != self._machine:
             return False, "授权码与当前机器码不匹配"
         if info.is_expired():
-            return False, f"授权码已过期（{info.expires_at}）"
+            return False, f"授权码已过期（{info.display_expires_at()}）"
 
         with self._db.transaction():
             self._repo.save_activated(
@@ -176,8 +177,12 @@ class LicenseService:
                 expires_at=info.expires_at,
             )
         self._write_license_files(key)
-        self._logger.info("激活成功: %s 有效期至 %s", info.license_type, info.expires_at)
-        return True, f"激活成功，有效期至 {info.expires_at}"
+        self._logger.info("激活成功: %s 有效期至 %s", info.license_type, info.display_expires_at())
+        if info.license_type == "perpetual":
+            return True, "激活成功，永久有效"
+        if not info.expires_at:
+            return True, "激活成功"
+        return True, f"激活成功，有效期至 {info.display_expires_at()}"
 
     def deactivate(self) -> None:
         self._repo.deactivate()
@@ -188,12 +193,12 @@ class LicenseService:
         """从数据库或文件恢复激活信息。"""
         row = self._repo.get_active()
         if row is not None and row.get("license_key"):
-            info = decode_license(row["license_key"], self._secret)
+            info = decode_license(row["license_key"], self._public_key_path, self._machine)
             if info is not None:
                 return info
         key = self._read_license_from_files()
         if key is not None:
-            return decode_license(key, self._secret)
+            return decode_license(key, self._public_key_path, self._machine)
         return None
 
     # ------------------------------------------------------------------
