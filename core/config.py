@@ -52,6 +52,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "license": {
         "trial_days": 15,
     },
+    "telemetry": {
+        "enabled": True,
+        "endpoint": "https://snapbyface.com/api/v1/telemetry",
+        "timeout_seconds": 3,
+    },
 }
 
 

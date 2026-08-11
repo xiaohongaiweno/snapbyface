@@ -150,6 +150,14 @@ class LicenseService:
     def is_valid(self) -> bool:
         return bool(self.status()["valid"])
 
+    def quota_summary(self) -> tuple[int, int]:
+        """Return total and remaining license quota for telemetry."""
+        info = self._get_activated_info()
+        if info is None or info.is_expired() or info.is_unlimited:
+            return 0, 0
+        credits = max(0, int(info.credits))
+        return credits, credits
+
     # ------------------------------------------------------------------
     # 激活
     # ------------------------------------------------------------------

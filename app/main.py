@@ -23,6 +23,7 @@ def main() -> int:
         app.setOrganizationName("SnapByFace")
 
         application = Application()
+        application.report_startup_telemetry()
         application.start_background()
 
         window = MainWindow(application)

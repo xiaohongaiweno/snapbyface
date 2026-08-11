@@ -49,6 +49,17 @@ def _make_key(service, keypair, days=30, machine=None):
     return create_license(machine, "duration", days, private_key_path=private_key)
 
 
+def _make_count_key(service, keypair, credits=1000):
+    private_key, _ = keypair
+    return create_license(
+        service.machine_code,
+        "count",
+        0,
+        private_key_path=private_key,
+        credits=credits,
+    )
+
+
 class TestTrial:
     def test_first_status_starts_trial(self, service):
         st = service.status()
@@ -207,3 +218,18 @@ class TestActivation:
 class TestMachineBinding:
     def test_machine_code_exposed(self, service):
         assert service.machine_code
+
+
+class TestQuotaSummary:
+    def test_trial_reports_zero_quota(self, service):
+        assert service.quota_summary() == (0, 0)
+
+    def test_duration_license_reports_zero_quota(self, service, keypair):
+        ok, _ = service.activate(_make_key(service, keypair))
+        assert ok is True
+        assert service.quota_summary() == (0, 0)
+
+    def test_count_license_reports_credits(self, service, keypair):
+        ok, _ = service.activate(_make_count_key(service, keypair, credits=1200))
+        assert ok is True
+        assert service.quota_summary() == (1200, 1200)

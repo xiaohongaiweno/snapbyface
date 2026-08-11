@@ -20,6 +20,11 @@ class TestDefaults:
     def test_default_trial_days(self, config):
         assert config.get("license.trial_days") == 15
 
+    def test_default_telemetry_settings(self, config):
+        assert config.get("telemetry.enabled") is True
+        assert config.get("telemetry.endpoint") == "https://snapbyface.com/api/v1/telemetry"
+        assert config.get("telemetry.timeout_seconds") == 3
+
     def test_default_photo_extensions(self, config):
         extensions = config.get("photo.extensions")
         assert ".jpg" in extensions

@@ -16,6 +16,7 @@ from services.index_service import IndexService
 from services.license_service import LicenseService
 from services.photo_service import PhotoService
 from services.search_service import SearchService
+from services.telemetry_service import TelemetryService
 from services.watcher_service import WatcherService
 from viewmodels.license_viewmodel import LicenseViewModel
 from workers.scanner_worker import ScannerWorker
@@ -54,6 +55,7 @@ class Application:
             self.ctx.db, self.ctx.config, self.ctx.app_dir
         )
         self.license_viewmodel = LicenseViewModel(self.license_service)
+        self.telemetry_service = TelemetryService(self.ctx.config, self.license_service)
 
         # 后台任务（延迟到 start_background）
         self.scanner_worker: ScannerWorker | None = None
@@ -62,6 +64,10 @@ class Application:
     # ------------------------------------------------------------------
     # 生命周期
     # ------------------------------------------------------------------
+    def report_startup_telemetry(self) -> None:
+        """尝试异步上报启动遥测，不影响主流程。"""
+        self.telemetry_service.report_startup_async()
+
     def start_background(self, watch: bool = True) -> None:
         """启动索引 Worker、启动扫描、目录监听。"""
         self.index_service.start()

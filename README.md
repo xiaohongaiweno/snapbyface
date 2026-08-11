@@ -72,6 +72,8 @@ python -m venv .venv
 | `photo.directory` | 空 | 照片目录 |
 | `face.threshold` | 0.80 | 相似度阈值 |
 | `license.trial_days` | 15 | 试用天数 |
+| `telemetry.enabled` | `true` | 启动时尝试上报应用信息 |
+| `telemetry.endpoint` | `https://snapbyface.app/api/v1/telemetry` | 遥测接口地址 |
 
 ## 授权
 
